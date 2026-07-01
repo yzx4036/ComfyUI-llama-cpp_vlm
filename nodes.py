@@ -23,14 +23,14 @@ from llama_cpp.llama_chat_format import (
     NanoLlavaChatHandler, Llama3VisionAlphaChatHandler, MiniCPMv26ChatHandler
 )
 
+chat_handlers = ["None", "LLaVA-1.5", "LLaVA-1.6", "Moondream2", "nanoLLaVA", "llama3-Vision-Alpha", "MiniCPM-v2.6"]
+
 try:
     from llama_cpp.llama_chat_format import MTMDChatHandler
     chat_handlers += ["DeepSeek-OCR"]
     _MTMD = True
 except:
     _MTMD = False
-
-chat_handlers = ["None", "LLaVA-1.5", "LLaVA-1.6", "Moondream2", "nanoLLaVA", "llama3-Vision-Alpha", "MiniCPM-v2.6"]
 
 try:
     from llama_cpp.llama_chat_format import Gemma3ChatHandler
@@ -505,13 +505,13 @@ class llama_cpp_instruct_adv:
         
         if parameters is None:
             parameters = {}
-        
-        if _MTMD:
-            parameters.pop("present_penalty", None)
-            
+
         _uid = parameters.get("state_uid", None)
         _parameters = parameters.copy()
         _parameters.pop("state_uid", None)
+
+        if _MTMD:
+            _parameters.pop("present_penalty", None)
         uid = unique_id.rpartition('.')[-1] if _uid in (None, -1) else _uid
         
         last_sys_prompt = LLAMA_CPP_STORAGE.sys_prompts.get(f"{uid}", None)

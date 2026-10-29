@@ -269,7 +269,7 @@ class LLAMA_CPP_STORAGE:
         load_mtp = config["load_mtp"]
         n_gpu_layers = -1
         
-        model_path = os.path.join(folder_paths.models_dir, 'LLM', model)
+        model_path = _resolve_llm_path(model)
         handler_cls = get_chat_handler(chat_handler)
         
         if vram_limit != -1:
@@ -278,7 +278,7 @@ class LLAMA_CPP_STORAGE:
             gguf_layer_size = gguf_size / gguf_layers
         
         if mmproj and mmproj != "None":
-            mmproj_path = os.path.join(folder_paths.models_dir, 'LLM', mmproj)
+            mmproj_path = _resolve_llm_path(mmproj)
             if chat_handler == "None":
                 raise ValueError('"chat_handler" cannot be None when mmproj is used!')
             
@@ -346,7 +346,43 @@ if not hasattr(mm, "unload_all_models_backup"):
     print("[llama-cpp_vlm] Model cleanup hook applied!")
 
 llm_extensions = ['.ckpt', '.pt', '.bin', '.pth', '.safetensors', '.gguf']
-folder_paths.folder_names_and_paths["LLM"] = ([os.path.join(folder_paths.models_dir, "LLM")], llm_extensions)
+
+
+def _resolve_llm_path(name):
+    """在 LLM 的全部已注册目录里解析文件名（支持 extra_model_paths.yaml 扩展盘）。"""
+    if not name:
+        return name
+    try:
+        p = folder_paths.get_full_path("LLM", name)
+        if p and os.path.isfile(p):
+            return p
+    except Exception:
+        pass
+    # 回退：逐目录找
+    entry = folder_paths.folder_names_and_paths.get("LLM")
+    dirs = []
+    if entry:
+        dirs = entry[0] if isinstance(entry[0], (list, tuple)) else [entry[0]]
+    dirs = list(dirs) + [os.path.join(folder_paths.models_dir, "LLM")]
+    for d in dirs:
+        cand = os.path.join(d, name)
+        if os.path.isfile(cand):
+            return cand
+    # 找不到时返回主目录拼法，让上层报错信息可读
+    return os.path.join(folder_paths.models_dir, "LLM", name)
+
+
+# 保留 extra_model_paths.yaml 已注册的 LLM 路径（原代码直接覆盖，会让 D 盘等外部模型目录失效）
+_llm_primary = os.path.join(folder_paths.models_dir, "LLM")
+_existing_llm = folder_paths.folder_names_and_paths.get("LLM")
+if _existing_llm:
+    _llm_dirs = list(_existing_llm[0]) if isinstance(_existing_llm[0], (list, tuple)) else [_existing_llm[0]]
+    if _llm_primary not in _llm_dirs:
+        _llm_dirs.insert(0, _llm_primary)
+    _llm_exts = set(_existing_llm[1]) | set(llm_extensions) if len(_existing_llm) > 1 else set(llm_extensions)
+    folder_paths.folder_names_and_paths["LLM"] = (_llm_dirs, _llm_exts)
+else:
+    folder_paths.folder_names_and_paths["LLM"] = ([_llm_primary], llm_extensions)
 preset_prompts = {
     "Empty - Nothing": "",
     "Normal - Describe": "Describe this @.",
